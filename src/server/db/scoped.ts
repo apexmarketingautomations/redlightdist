@@ -11,6 +11,8 @@ async function transaction<T>(settings: Array<[string, string]>, operation: (cli
   const client = await db.connect();
   try {
     await client.query("BEGIN");
+    // Never execute tenant application queries as the privileged migration/owner role.
+    await client.query("SET LOCAL ROLE redlight_runtime");
     for (const [key, value] of settings) await client.query("SELECT set_config($1,$2,true)", [key, value]);
     const result = await operation(client);
     await client.query("COMMIT");
