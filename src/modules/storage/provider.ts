@@ -3,10 +3,12 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 export interface UploadRequest { creatorId:string; objectKey:string; contentType:string; byteSize:number; checksumSha256?:string; }
 export interface SignedUpload { url:string; headers?:Record<string,string>; expiresAt:Date; }
 export interface SignedDownload { url:string; expiresAt:Date; }
+export interface StoredObjectInfo { byteSize:number; contentType:string|null; checksum?:string|null; }
 export interface StorageProvider {
   readonly name:string;
   createUpload(request:UploadRequest):Promise<SignedUpload>;
   createDownload(input:{creatorId:string;objectKey:string;expiresInSeconds:number}):Promise<SignedDownload>;
+  inspectObject(input:{creatorId:string;objectKey:string}):Promise<StoredObjectInfo|null>;
   deleteObject(input:{creatorId:string;objectKey:string}):Promise<void>;
 }
 
