@@ -32,6 +32,8 @@ export const defaultQuotas: Readonly<Record<Plan, Readonly<Record<QuotaFeature, 
   elite: { maxStorageBytes: 500 * 1024 ** 3, maxVideoBytes: 10 * 1024 ** 3, maxAdmins: 20, maxMembershipTiers: 50 },
 };
 
+export function planIncludesFeature(plan:Plan,feature:Feature):boolean { return grants[plan].has(feature); }
+
 export function billingAllowsAccess(input: {billingStatus: BillingStatus; graceEndsAt?: Date; now: Date}): boolean {
   return input.billingStatus === "active" || input.billingStatus === "trialing" ||
     (input.billingStatus === "grace" && !!input.graceEndsAt && input.graceEndsAt > input.now);
@@ -48,7 +50,7 @@ export function canUseFeature(input: {
   overrides?: Partial<Record<Feature, boolean>>;
 }): boolean {
   if (input.creatorStatus !== "active" || !billingAllowsAccess(input)) return false;
-  return input.overrides?.[input.feature] ?? grants[input.plan].has(input.feature);
+  return input.overrides?.[input.feature] ?? planIncludesFeature(input.plan,input.feature);
 }
 
 export function quotaFor(input: {
