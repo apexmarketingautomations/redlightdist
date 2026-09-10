@@ -20,7 +20,15 @@ function safeEqual(value: string, expected: string) {
 
 function sameOrigin(request: Request) {
   const origin = request.headers.get("origin");
-  return !origin || origin === new URL(request.url).origin;
+  if (!origin) return true;
+  try {
+    const originHost = new URL(origin).host.toLowerCase();
+    const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+    const requestHost = (forwardedHost || request.headers.get("host") || "").toLowerCase();
+    return Boolean(requestHost) && originHost === requestHost;
+  } catch {
+    return false;
+  }
 }
 
 export async function POST(request: Request) {
@@ -39,24 +47,29 @@ export async function POST(request: Request) {
       )
     ).rows[0];
 
-    if (!user) {
-      const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-      const adminPassword = process.env.ADMIN_PASSWORD;
-      if (!adminEmail || !adminPassword || !safeEqual(email, adminEmail) || !safeEqual(password, adminPassword)) {
-        await client.query("ROLLBACK");
-        return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
-      }
+    const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    const matchesConfiguredAdmin =
+      Boolean(adminEmail && adminPassword) &&
+      safeEqual(email, adminEmail!) &&
+      safeEqual(password, adminPassword!);
+
+    if (matchesConfiguredAdmin) {
       const passwordHash = await hash(password);
       user = (
         await client.query<{ id: string; password_hash: string; is_platform_admin: boolean }>(
           `INSERT INTO platform_users (email, password_hash, email_verified_at, is_platform_admin)
            VALUES ($1, $2, now(), true)
-           ON CONFLICT (lower(email)) DO UPDATE SET updated_at = now()
+           ON CONFLICT (lower(email)) DO UPDATE SET
+             password_hash = excluded.password_hash,
+             email_verified_at = COALESCE(platform_users.email_verified_at, now()),
+             is_platform_admin = true,
+             updated_at = now()
            RETURNING id, password_hash, is_platform_admin`,
           [email, passwordHash],
         )
       ).rows[0];
-    } else if (!(await verify(user.password_hash, password))) {
+    } else if (!user || !(await verify(user.password_hash, password))) {
       await client.query("ROLLBACK");
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }

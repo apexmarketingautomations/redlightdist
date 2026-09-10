@@ -20,7 +20,7 @@ export default function Home() {
     <nav className="nav shell">
       <a className="brand" href="#top" aria-label="Redlight home"><span className="brand-mark">R</span>REDLIGHT</a>
       <div className="nav-links"><a href="#platform">Platform</a><a href="#pricing">Pricing</a><a href="#security">Security</a></div>
-      <a className="nav-cta" href="#pricing">Launch your site <ArrowRight size={16}/></a>
+      <div className="nav-actions"><a className="nav-login" href="/login">Log in</a><a className="nav-cta" href="#pricing">Launch your site <ArrowRight size={16}/></a></div>
     </nav>
 
     <section className="hero shell" id="top">
