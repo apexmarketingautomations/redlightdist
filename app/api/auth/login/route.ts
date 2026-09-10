@@ -59,6 +59,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
 
+    if (!user) throw new Error("Failed to provision administrator.");
+
     if (!user.is_platform_admin) {
       await client.query("ROLLBACK");
       return NextResponse.json({ error: "This account does not have admin access." }, { status: 403 });
