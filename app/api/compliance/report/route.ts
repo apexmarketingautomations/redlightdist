@@ -12,7 +12,7 @@ export async function POST(request:Request){
   await withCreator(tenant.creatorId,async client=>{
     await client.query("INSERT INTO reports(creator_id,reporter_fan_id,subject_type,subject_id,reason_key,description,status) VALUES($1,$2,$3,$4,$5,$6,'open')",[tenant.creatorId,fan?.creatorId===tenant.creatorId?fan.id:null,parsed.data.subjectType,parsed.data.subjectId,parsed.data.reason,parsed.data.description??null]);
     if(["minor_safety","non_consent","exploitation","trafficking","illegal_content"].includes(parsed.data.reason)){
-      await client.query("INSERT INTO platform_alerts(creator_id,severity,alert_key,title,body,metadata) VALUES($1,'critical','safety_report','Urgent creator safety report',$2,$3::jsonb)",[tenant.creatorId,`A ${parsed.data.reason} report requires platform review.`,JSON.stringify({subjectType:parsed.data.subjectType,subjectId:parsed.data.subjectId})]);
+      await client.query("SELECT raise_current_tenant_alert('critical','safety_report','Urgent creator safety report',$1,$2::jsonb)",[`A ${parsed.data.reason} report requires platform review.`,JSON.stringify({subjectType:parsed.data.subjectType,subjectId:parsed.data.subjectId})]);
     }
   });
   return NextResponse.redirect(new URL("/compliance?reported=1",request.url),303);
