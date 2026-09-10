@@ -29,8 +29,8 @@ export function plannedActions(definition: AutomationDefinition,event:Automation
 }
 
 export const supportedTriggerKeys = [
-  "fan.registered","fan.subscribed","subscription.renewed","subscription.cancelled","subscription.expiring",
-  "payment.failed","fan.spend.threshold","fan.inactive","content.published","ppv.published","livestream.started","livestream.ended",
+  "fan.registered","fan.subscribed","subscription.renewed","subscription.cancellation_requested","subscription.cancelled","subscription.expiring",
+  "payment.failed","purchase.completed","tip.completed","fan.spend.threshold","fan.inactive","content.published","ppv.published","livestream.started","livestream.ended",
 ] as const;
 export const supportedActionKeys = [
   "email.send","sms.send","notification.create","fan.tag","fan.untag","campaign.enqueue","offer.assign","webhook.emit",
