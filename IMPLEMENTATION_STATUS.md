@@ -1,6 +1,9 @@
 # Implementation status
 
 ## DONE
+- Added the first PostgreSQL migration with identity, tenant, domain, theme, settings, plan, feature override, audit, compliance, and consent records; plan prices are seeded.
+- Added forced row-level security policies for Phase 1 tenant tables and a transaction-scoped creator database helper.
+- Added transactional, advisory-locked migration execution and an idempotency/schema test using an isolated PostgreSQL-compatible database.
 - Built the responsive SaaS sales website with platform positioning, creator-brand examples, capabilities, themes, plan pricing, security, and onboarding flow.
 - Added deployable Next.js service entry point and database-backed /health readiness check; the root explicitly states the platform is under development.
 - Added a non-root standalone Docker runtime; local production build, type checking, 15 unit tests and lint passed.
