@@ -58,24 +58,23 @@ try {
   for (const table of requiredTables)
     if (!present.has(table)) throw new Error(`Missing migrated table: ${table}`);
 
+  const tenantTables = [
+    "campaign_deliveries",
+    "subscription_change_requests",
+    "referral_commissions",
+    "content_holds",
+    "compliance_case_notes",
+    "live_polls",
+    "live_poll_options",
+    "live_poll_votes",
+    "live_offers",
+    "live_guest_invites",
+    "live_gifts",
+  ];
   const policies = await db.query<{ tablename: string; policyname: string }>(
     "SELECT tablename,policyname FROM pg_policies WHERE schemaname='public'",
   );
-  for (const table of requiredTables.filter((name) =>
-    [
-      "campaign_deliveries",
-      "subscription_change_requests",
-      "referral_commissions",
-      "content_holds",
-      "compliance_case_notes",
-      "live_polls",
-      "live_poll_options",
-      "live_poll_votes",
-      "live_offers",
-      "live_guest_invites",
-      "live_gifts",
-    ].includes(name),
-  )) {
+  for (const table of tenantTables) {
     if (!policies.rows.some((row) => row.tablename === table && row.policyname === `${table}_tenant`))
       throw new Error(`Missing tenant RLS policy for ${table}`);
   }
@@ -91,6 +90,37 @@ try {
     "refresh_daily_creator_metrics",
   ])
     if (!functionNames.has(name)) throw new Error(`Missing operational function: ${name}`);
+
+  // Prove a new scope-90 tenant table is actually isolated under the restricted runtime role,
+  // not merely decorated with a policy definition.
+  const creatorA = "11111111-1111-4111-8111-111111111111";
+  const creatorB = "22222222-2222-4222-8222-222222222222";
+  await db.query(
+    "INSERT INTO creators(id,name,slug,status) VALUES($1,'Tenant A','tenant-a','active'),($2,'Tenant B','tenant-b','active')",
+    [creatorA, creatorB],
+  );
+  await db.query(
+    "INSERT INTO compliance_case_notes(creator_id,case_type,case_id,note) VALUES($1,'other','a','A only'),($2,'other','b','B only')",
+    [creatorA, creatorB],
+  );
+  await db.exec("SET ROLE redlight_runtime");
+  await db.query("SELECT set_config('app.creator_id',$1,false)", [creatorA]);
+  const isolated = await db.query<{ note: string }>(
+    "SELECT note FROM compliance_case_notes ORDER BY note",
+  );
+  if (JSON.stringify(isolated.rows) !== JSON.stringify([{ note: "A only" }]))
+    throw new Error(`Tenant RLS leak detected: ${JSON.stringify(isolated.rows)}`);
+  let crossTenantWriteBlocked = false;
+  try {
+    await db.query(
+      "INSERT INTO compliance_case_notes(creator_id,case_type,case_id,note) VALUES($1,'other','blocked','must fail')",
+      [creatorB],
+    );
+  } catch {
+    crossTenantWriteBlocked = true;
+  }
+  if (!crossTenantWriteBlocked) throw new Error("Tenant RLS allowed a cross-tenant write");
+  await db.exec("RESET ROLE");
 } finally {
   await db.close();
 }
