@@ -28,6 +28,7 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
        FROM sessions s
        JOIN platform_users u ON u.id = s.user_id
       WHERE s.token_hash = $1
+        AND u.disabled_at IS NULL
         AND s.revoked_at IS NULL
         AND s.expires_at > now()
       LIMIT 1`,

@@ -44,7 +44,7 @@ export async function withCreatorUser<T>(
     [["app.user_id", userId], ["app.creator_id", creatorId]],
     async (client) => {
       const membership = await client.query<{ role: string }>(
-        "SELECT role::text FROM creator_users WHERE creator_id = $1 AND user_id = $2 LIMIT 1",
+        "SELECT cu.role::text FROM creator_users cu JOIN creators c ON c.id=cu.creator_id JOIN platform_users u ON u.id=cu.user_id WHERE cu.creator_id = $1 AND cu.user_id = $2 AND c.status IN ('draft','active') AND c.deleted_at IS NULL AND u.disabled_at IS NULL LIMIT 1",
         [creatorId, userId],
       );
       const role = membership.rows[0]?.role;

@@ -41,8 +41,8 @@ export async function POST(request: Request) {
   try {
     await client.query("BEGIN");
     let user = (
-      await client.query<{ id: string; password_hash: string; is_platform_admin: boolean }>(
-        "SELECT id, password_hash, is_platform_admin FROM platform_users WHERE lower(email) = $1 LIMIT 1 FOR UPDATE",
+      await client.query<{ id: string; password_hash: string; is_platform_admin: boolean; disabled_at: Date | null }>(
+        "SELECT id, password_hash, is_platform_admin, disabled_at FROM platform_users WHERE lower(email) = $1 LIMIT 1 FOR UPDATE",
         [email],
       )
     ).rows[0];
@@ -57,19 +57,20 @@ export async function POST(request: Request) {
     if (matchesConfiguredAdmin) {
       const passwordHash = await hash(password);
       user = (
-        await client.query<{ id: string; password_hash: string; is_platform_admin: boolean }>(
+        await client.query<{ id: string; password_hash: string; is_platform_admin: boolean; disabled_at: Date | null }>(
           `INSERT INTO platform_users (email, password_hash, email_verified_at, is_platform_admin)
            VALUES ($1, $2, now(), true)
            ON CONFLICT (lower(email)) DO UPDATE SET
              password_hash = excluded.password_hash,
              email_verified_at = COALESCE(platform_users.email_verified_at, now()),
              is_platform_admin = true,
+             disabled_at = NULL,
              updated_at = now()
-           RETURNING id, password_hash, is_platform_admin`,
+           RETURNING id, password_hash, is_platform_admin, disabled_at`,
           [email, passwordHash],
         )
       ).rows[0];
-    } else if (!user || !(await verify(user.password_hash, password))) {
+    } else if (!user || user.disabled_at || !(await verify(user.password_hash, password))) {
       await client.query("ROLLBACK");
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
