@@ -1,5 +1,5 @@
 import type { PoolClient } from "pg";
-import { canUseFeature, quotaFor, type Feature, type Plan, type QuotaFeature, type BillingStatus, type CreatorStatus } from "./policy";
+import { billingAllowsAccess, canUseFeature, planIncludesFeature, quotaFor, type Feature, type Plan, type QuotaFeature, type BillingStatus, type CreatorStatus } from "./policy";
 
 export interface CreatorEntitlementSnapshot {
   plan: Plan;
@@ -11,7 +11,7 @@ export interface CreatorEntitlementSnapshot {
 }
 
 export async function loadCreatorEntitlements(client:PoolClient,creatorId:string):Promise<CreatorEntitlementSnapshot>{
-  const row=(await client.query<{plan:string;billing_status:string;creator_status:string;grace_ends_at:Date|null}>(
+  const row=(await client.query<{plan:string|null;billing_status:string|null;creator_status:string;grace_ends_at:Date|null}>(
     `SELECT p.code AS plan,cp.billing_status::text,c.status::text AS creator_status,cp.grace_ends_at
        FROM creators c
        LEFT JOIN creator_plans cp ON cp.creator_id=c.id AND cp.billing_status<>'cancelled'
@@ -35,9 +35,14 @@ export async function loadCreatorEntitlements(client:PoolClient,creatorId:string
   };
 }
 
-export async function requireCreatorFeature(client:PoolClient,creatorId:string,feature:Feature):Promise<void>{
+export async function requireCreatorFeature(client:PoolClient,creatorId:string,feature:Feature,mode:"configure"|"runtime"="configure"):Promise<void>{
   const snapshot=await loadCreatorEntitlements(client,creatorId);
-  if(!canUseFeature({...snapshot,feature,now:new Date()})) throw new Error(`FEATURE_NOT_AVAILABLE:${feature}`);
+  const allowed=mode==="runtime"
+    ? canUseFeature({...snapshot,feature,now:new Date()})
+    : snapshot.creatorStatus!=="suspended" && snapshot.creatorStatus!=="deleted" &&
+      billingAllowsAccess({billingStatus:snapshot.billingStatus,graceEndsAt:snapshot.graceEndsAt,now:new Date()}) &&
+      (snapshot.overrides[feature] ?? planIncludesFeature(snapshot.plan,feature));
+  if(!allowed) throw new Error(`FEATURE_NOT_AVAILABLE:${feature}`);
 }
 
 export async function creatorQuota(client:PoolClient,creatorId:string,quota:QuotaFeature):Promise<number>{
