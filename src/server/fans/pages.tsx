@@ -3,350 +3,42 @@ import { redirect } from "next/navigation";
 import { getCurrentFan } from "@/src/modules/auth/fan-session";
 import { withCreator } from "@/src/server/db/scoped";
 
-const money = (minor: number | string, currency = "USD") =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
-    Number(minor) / 100,
-  );
-const date = (value: Date | string | null) =>
-  value ? new Date(value).toLocaleDateString() : "—";
+const money=(minor:number|string,currency="USD")=>new Intl.NumberFormat("en-US",{style:"currency",currency}).format(Number(minor)/100);
+const date=(value:Date|string|null)=>value?new Date(value).toLocaleDateString():"—";
 
-export function FanAuthPage({
-  creatorName,
-  mode,
-  style,
-  token,
-}: {
-  creatorName: string;
-  mode: "login" | "register" | "forgot" | "reset";
-  style: CSSProperties;
-  token?: string;
-}) {
-  const title =
-    mode === "login"
-      ? "Welcome back"
-      : mode === "register"
-        ? "Join the community"
-        : mode === "forgot"
-          ? "Reset password"
-          : "Choose a new password";
-  return (
-    <main className="creator-site creator-auth" style={style}>
-      <section>
-        <a href="/">← {creatorName}</a>
-        <small>{mode.toUpperCase()}</small>
-        <h1>{title}</h1>
-        {mode === "login" && (
-          <>
-            <form method="post" action="/api/fan/login">
-              <label>
-                Email
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  autoComplete="email"
-                />
-              </label>
-              <label>
-                Password
-                <input
-                  type="password"
-                  name="password"
-                  required
-                  autoComplete="current-password"
-                />
-              </label>
-              <button className="creator-primary" type="submit">
-                Log in
-              </button>
-            </form>
-            <p>
-              New here? <a href="/fan/register">Create an account</a>.{" "}
-              <a href="/fan/forgot-password">Forgot password?</a>
-            </p>
-          </>
-        )}
-        {mode === "register" && (
-          <>
-            <form method="post" action="/api/fan/register">
-              <label>
-                Email
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  autoComplete="email"
-                />
-              </label>
-              <label>
-                Password
-                <input
-                  type="password"
-                  name="password"
-                  required
-                  minLength={12}
-                  autoComplete="new-password"
-                />
-              </label>
-              <label className="creator-check">
-                <input type="checkbox" name="acceptTerms" required /> I agree to
-                the <a href="/terms">Terms</a> and{" "}
-                <a href="/privacy">Privacy Policy</a>.
-              </label>
-              <label className="creator-check">
-                <input type="checkbox" name="emailConsent" /> Send me creator
-                updates and offers by email.
-              </label>
-              <button className="creator-primary" type="submit">
-                Create account
-              </button>
-            </form>
-            <p>
-              Already registered? <a href="/fan/login">Log in</a>.
-            </p>
-          </>
-        )}
-        {mode === "forgot" && (
-          <>
-            <p>
-              Enter your account email. If an account exists, the platform sends
-              a time-limited reset link through the configured email provider.
-            </p>
-            <form method="post" action="/api/fan/request-reset">
-              <label>
-                Email
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  autoComplete="email"
-                />
-              </label>
-              <button className="creator-primary" type="submit">
-                Send reset link
-              </button>
-            </form>
-          </>
-        )}
-        {mode === "reset" && (
-          <>
-            <form method="post" action="/api/fan/reset-password">
-              <input type="hidden" name="token" value={token ?? ""} />
-              <label>
-                New password
-                <input
-                  type="password"
-                  name="password"
-                  required
-                  minLength={12}
-                  autoComplete="new-password"
-                />
-              </label>
-              <label>
-                Confirm password
-                <input
-                  type="password"
-                  name="confirm"
-                  required
-                  minLength={12}
-                  autoComplete="new-password"
-                />
-              </label>
-              <button className="creator-primary" type="submit">
-                Save new password
-              </button>
-            </form>
-          </>
-        )}
-      </section>
-    </main>
-  );
+export function FanAuthPage({creatorName,mode,style,token}:{creatorName:string;mode:"login"|"register"|"forgot"|"reset";style:CSSProperties;token?:string}){
+  const title=mode==="login"?"Welcome back":mode==="register"?"Join the community":mode==="forgot"?"Reset password":"Choose a new password";
+  return <main className="creator-site creator-auth" style={style}><section><a href="/">← {creatorName}</a><small>{mode.toUpperCase()}</small><h1>{title}</h1>
+    {mode==="login"&&<><form method="post" action="/api/fan/login"><label>Email<input type="email" name="email" required autoComplete="email"/></label><label>Password<input type="password" name="password" required autoComplete="current-password"/></label><button className="creator-primary" type="submit">Log in</button></form><p>New here? <a href="/fan/register">Create an account</a>. <a href="/fan/forgot-password">Forgot password?</a></p></>}
+    {mode==="register"&&<><form method="post" action="/api/fan/register"><label>Email<input type="email" name="email" required autoComplete="email"/></label><label>Password<input type="password" name="password" required minLength={12} autoComplete="new-password"/></label><label className="creator-check"><input type="checkbox" name="acceptTerms" required/> I agree to the <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</label><label className="creator-check"><input type="checkbox" name="emailConsent"/> Send me creator updates and offers by email.</label><button className="creator-primary" type="submit">Create account</button></form><p>Already registered? <a href="/fan/login">Log in</a>.</p></>}
+    {mode==="forgot"&&<><p>Enter your account email. If an account exists, the platform sends a time-limited reset link through the configured email provider.</p><form method="post" action="/api/fan/request-reset"><label>Email<input type="email" name="email" required autoComplete="email"/></label><button className="creator-primary" type="submit">Send reset link</button></form></>}
+    {mode==="reset"&&<form method="post" action="/api/fan/reset-password"><input type="hidden" name="token" value={token??""}/><label>New password<input type="password" name="password" required minLength={12} autoComplete="new-password"/></label><label>Confirm password<input type="password" name="confirm" required minLength={12} autoComplete="new-password"/></label><button className="creator-primary" type="submit">Save new password</button></form>}
+  </section></main>;
 }
 
-export async function FanAccountPage({
-  creatorId,
-  creatorName,
-  style,
-}: {
-  creatorId: string;
-  creatorName: string;
-  style: CSSProperties;
-}) {
-  const fan = await getCurrentFan();
-  if (!fan || fan.creatorId !== creatorId) redirect("/fan/login");
-  const data = await withCreator(creatorId, async (client) => ({
-    profile: (
-      await client.query<{
-        display_name: string | null;
-        phone: string | null;
-        email_consent: boolean;
-        sms_consent: boolean;
-        marketing_consent: boolean;
-      }>(
-        "SELECT display_name,phone,email_consent,sms_consent,marketing_consent FROM fan_profiles WHERE creator_id=$1 AND fan_id=$2",
-        [creatorId, fan.id],
-      )
-    ).rows[0],
-    subscriptions: (
-      await client.query<{
-        id: string;
-        tier: string;
-        status: string;
-        monthly_price_minor: number;
-        currency: string;
-        current_period_ends_at: Date | null;
-        cancel_at_period_end: boolean;
-      }>(
-        "SELECT cs.id,mt.name tier,cs.status,mt.monthly_price_minor,mt.currency,cs.current_period_ends_at,cs.cancel_at_period_end FROM creator_subscriptions cs JOIN membership_tiers mt ON mt.creator_id=cs.creator_id AND mt.id=cs.membership_tier_id WHERE cs.creator_id=$1 AND cs.fan_id=$2 ORDER BY cs.created_at DESC",
-        [creatorId, fan.id],
-      )
-    ).rows,
-    purchases: (
-      await client.query<{
-        id: string;
-        name: string;
-        product_type: string;
-        gross_minor: number;
-        currency: string;
-        status: string;
-        purchased_at: Date | null;
-      }>(
-        "SELECT p.id,pr.name,pr.product_type,p.gross_minor,p.currency,p.status,p.purchased_at FROM purchases p JOIN products pr ON pr.creator_id=p.creator_id AND pr.id=p.product_id WHERE p.creator_id=$1 AND p.fan_id=$2 ORDER BY p.created_at DESC LIMIT 100",
-        [creatorId, fan.id],
-      )
-    ).rows,
-    favorites: (
-      await client.query<{
-        post_id: string;
-        title: string | null;
-        created_at: Date;
-      }>(
-        "SELECT f.post_id,p.title,f.created_at FROM favorites f JOIN content_posts p ON p.creator_id=f.creator_id AND p.id=f.post_id WHERE f.creator_id=$1 AND f.fan_id=$2 ORDER BY f.created_at DESC",
-        [creatorId, fan.id],
-      )
-    ).rows,
+export async function FanAccountPage({creatorId,creatorName,style}:{creatorId:string;creatorName:string;style:CSSProperties}){
+  const fan=await getCurrentFan();if(!fan||fan.creatorId!==creatorId)redirect("/fan/login");
+  const data=await withCreator(creatorId,async client=>({
+    profile:(await client.query<{display_name:string|null;phone:string|null;email_consent:boolean;sms_consent:boolean;marketing_consent:boolean}>("SELECT display_name,phone,email_consent,sms_consent,marketing_consent FROM fan_profiles WHERE creator_id=$1 AND fan_id=$2",[creatorId,fan.id])).rows[0],
+    subscriptions:(await client.query<{id:string;tier:string;status:string;monthly_price_minor:number;currency:string;current_period_ends_at:Date|null;cancel_at_period_end:boolean;request_type:string|null;request_status:string|null;requested_at:Date|null}>(`SELECT cs.id,mt.name tier,cs.status,mt.monthly_price_minor,mt.currency,cs.current_period_ends_at,cs.cancel_at_period_end,r.request_type,r.status request_status,r.requested_at FROM creator_subscriptions cs JOIN membership_tiers mt ON mt.creator_id=cs.creator_id AND mt.id=cs.membership_tier_id LEFT JOIN LATERAL (SELECT request_type,status,requested_at FROM subscription_change_requests scr WHERE scr.creator_id=cs.creator_id AND scr.creator_subscription_id=cs.id AND scr.status IN ('pending','processing') ORDER BY requested_at DESC LIMIT 1) r ON true WHERE cs.creator_id=$1 AND cs.fan_id=$2 ORDER BY cs.created_at DESC`,[creatorId,fan.id])).rows,
+    purchases:(await client.query<{id:string;name:string;product_type:string;gross_minor:number;currency:string;status:string;purchased_at:Date|null}>("SELECT p.id,pr.name,pr.product_type,p.gross_minor,p.currency,p.status,p.purchased_at FROM purchases p JOIN products pr ON pr.creator_id=p.creator_id AND pr.id=p.product_id WHERE p.creator_id=$1 AND p.fan_id=$2 ORDER BY p.created_at DESC LIMIT 100",[creatorId,fan.id])).rows,
+    favorites:(await client.query<{post_id:string;title:string|null;created_at:Date}>("SELECT f.post_id,p.title,f.created_at FROM favorites f JOIN content_posts p ON p.creator_id=f.creator_id AND p.id=f.post_id WHERE f.creator_id=$1 AND f.fan_id=$2 ORDER BY f.created_at DESC",[creatorId,fan.id])).rows,
+    messages:(await client.query<{id:string;subject:string|null;body:string;created_at:Date;sent_at:Date|null}>("SELECT id,subject,body,created_at,sent_at FROM notifications WHERE creator_id=$1 AND fan_id=$2 AND channel='in_app' AND status IN ('queued','sent') ORDER BY created_at DESC LIMIT 50",[creatorId,fan.id])).rows,
   }));
-  return (
-    <main className="creator-site fan-account" style={style}>
-      <header className="creator-site-nav">
-        <a className="creator-site-logo" href="/">
-          {creatorName}
-        </a>
-        <form method="post" action="/api/fan/logout">
-          <button className="creator-secondary" type="submit">
-            Log out
-          </button>
-        </form>
-      </header>
-      <section className="creator-section">
-        <div className="creator-section-heading">
-          <div>
-            <small>FAN ACCOUNT</small>
-            <h2>{fan.email}</h2>
-          </div>
-          <a className="creator-secondary" href="/">
-            Back to creator
-          </a>
-        </div>
-        <div className="fan-account-grid">
-          <article className="creator-tier">
-            <small>SUBSCRIPTION</small>
-            <h3>Membership</h3>
-            {data.subscriptions.length ? (
-              data.subscriptions.map((sub) => (
-                <div className="fan-account-row" key={sub.id}>
-                  <div>
-                    <strong>{sub.tier}</strong>
-                    <p>
-                      {money(sub.monthly_price_minor, sub.currency)}/month ·{" "}
-                      {sub.status}
-                    </p>
-                    <small>
-                      Period ends {date(sub.current_period_ends_at)}
-                    </small>
-                  </div>
-                  {["active", "trialing"].includes(sub.status) && (
-                    <form
-                      method="post"
-                      action="/api/commerce/cancel-subscription"
-                    >
-                      <input
-                        type="hidden"
-                        name="subscriptionId"
-                        value={sub.id}
-                      />
-                      <button className="creator-secondary" type="submit">
-                        {sub.cancel_at_period_end
-                          ? "Cancellation scheduled"
-                          : "Cancel subscription"}
-                      </button>
-                    </form>
-                  )}
-                </div>
-              ))
-            ) : (
-              <p>No membership yet.</p>
-            )}
-          </article>
-          <article className="creator-tier">
-            <small>ACCOUNT</small>
-            <h3>Preferences</h3>
-            <p>
-              {data.profile?.email_consent
-                ? "Email updates enabled"
-                : "Email marketing disabled"}
-            </p>
-            <p>{data.profile?.sms_consent ? "SMS enabled" : "SMS disabled"}</p>
-            <a className="creator-secondary" href="/fan/forgot-password">
-              Reset password
-            </a>
-          </article>
-        </div>
-      </section>
-      <section className="creator-section">
-        <div className="creator-section-heading">
-          <div>
-            <small>LIBRARY</small>
-            <h2>Purchases</h2>
-          </div>
-        </div>
-        <div className="creator-content-grid">
-          {data.purchases.length ? (
-            data.purchases.map((item) => (
-              <article className="creator-post" key={item.id}>
-                <div className="creator-post-copy">
-                  <small>{item.product_type}</small>
-                  <h3>{item.name}</h3>
-                  <p>
-                    {money(item.gross_minor, item.currency)} · {item.status} ·{" "}
-                    {date(item.purchased_at)}
-                  </p>
-                </div>
-              </article>
-            ))
-          ) : (
-            <div className="creator-empty">No purchases yet.</div>
-          )}
-        </div>
-      </section>
-      <section className="creator-section">
-        <div className="creator-section-heading">
-          <div>
-            <small>SAVED</small>
-            <h2>Favorites</h2>
-          </div>
-        </div>
-        {data.favorites.length ? (
-          data.favorites.map((item) => (
-            <p key={item.post_id}>
-              <strong>{item.title ?? "Post"}</strong> · saved{" "}
-              {date(item.created_at)}
-            </p>
-          ))
-        ) : (
-          <div className="creator-empty">No favorites yet.</div>
-        )}
-      </section>
-    </main>
-  );
+  return <main className="creator-site fan-account" style={style}>
+    <header className="creator-site-nav"><a className="creator-site-logo" href="/">{creatorName}</a><form method="post" action="/api/fan/logout"><button className="creator-secondary" type="submit">Log out</button></form></header>
+    <section className="creator-section"><div className="creator-section-heading"><div><small>FAN ACCOUNT</small><h2>{data.profile?.display_name||fan.email}</h2><p>{fan.email}</p></div><a className="creator-secondary" href="/">Back to creator</a></div>
+      <div className="fan-account-grid"><article className="creator-tier"><small>SUBSCRIPTION</small><h3>Membership</h3>
+        {data.subscriptions.length?data.subscriptions.map(sub=><div className="fan-account-row" key={sub.id}><div><strong>{sub.tier}</strong><p>{money(sub.monthly_price_minor,sub.currency)}/month · {sub.status}</p><small>Period ends {date(sub.current_period_ends_at)}</small>{sub.request_status&&<p><strong>{sub.request_type} request:</strong> {sub.request_status} since {date(sub.requested_at)}</p>}</div>
+          {!sub.request_status&&["active","trialing","past_due"].includes(sub.status)&&<form method="post" action="/api/commerce/cancel-subscription"><input type="hidden" name="subscriptionId" value={sub.id}/><button className="creator-secondary" type="submit">Request cancellation</button></form>}
+          {(sub.request_type==="cancel"||["cancelled","expired"].includes(sub.status))&&<form method="post" action="/api/commerce/renew-subscription"><input type="hidden" name="subscriptionId" value={sub.id}/><button className="creator-primary" type="submit">Request renewal</button></form>}
+        </div>):<p>No membership yet.</p>}
+        <p className="creator-muted">Processor confirmation is required before a pending cancellation or renewal changes paid access.</p>
+      </article>
+      <article className="creator-tier"><small>ACCOUNT</small><h3>Communication preferences</h3><form method="post" action="/api/fan/preferences"><label className="creator-check"><input type="checkbox" name="emailConsent" defaultChecked={data.profile?.email_consent}/> Creator updates by email</label><label className="creator-check"><input type="checkbox" name="smsConsent" defaultChecked={data.profile?.sms_consent}/> Creator updates by SMS</label><button className="creator-secondary" type="submit">Save preferences</button></form><a className="creator-secondary" href="/fan/forgot-password">Reset password</a></article></div>
+    </section>
+    <section className="creator-section"><div className="creator-section-heading"><div><small>MESSAGES</small><h2>In-app notifications</h2></div></div>{data.messages.length?data.messages.map(message=><article className="creator-post" key={message.id}><div className="creator-post-copy"><small>{date(message.sent_at??message.created_at)}</small><h3>{message.subject||"Update"}</h3><p>{message.body}</p></div></article>):<div className="creator-empty">No messages yet.</div>}</section>
+    <section className="creator-section"><div className="creator-section-heading"><div><small>LIBRARY</small><h2>Purchases</h2></div></div><div className="creator-content-grid">{data.purchases.length?data.purchases.map(item=><article className="creator-post" key={item.id}><div className="creator-post-copy"><small>{item.product_type}</small><h3>{item.name}</h3><p>{money(item.gross_minor,item.currency)} · {item.status} · {date(item.purchased_at)}</p></div></article>):<div className="creator-empty">No purchases yet.</div>}</div></section>
+    <section className="creator-section"><div className="creator-section-heading"><div><small>SAVED</small><h2>Favorites</h2></div></div>{data.favorites.length?data.favorites.map(item=><p key={item.post_id}><a href={`/content/${item.post_id}`}><strong>{item.title??"Post"}</strong></a> · saved {date(item.created_at)}</p>):<div className="creator-empty">No favorites yet.</div>}</section>
+  </main>;
 }

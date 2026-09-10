@@ -1,0 +1,7 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { withAuthorizedCreator } from "@/src/modules/auth/authorization";
+import { createPlatformBillingPortal } from "@/src/modules/platform-billing/stripe";
+
+const schema=z.object({creatorId:z.string().uuid()});
+export async function POST(request:Request){const parsed=schema.safeParse(Object.fromEntries(await request.formData()));if(!parsed.success)return new NextResponse("Invalid workspace",{status:400});const {creatorId}=parsed.data;try{const url=await withAuthorizedCreator(creatorId,async(client,_user,role)=>{if(!["owner","admin","platform_admin"].includes(role))throw new Error("ROLE_DENIED");const row=(await client.query<{provider:string;provider_customer_id:string|null}>("SELECT provider,provider_customer_id FROM platform_billing_subscriptions WHERE creator_id=$1 AND status IN ('trialing','active','past_due','grace') ORDER BY updated_at DESC LIMIT 1",[creatorId])).rows[0];if(!row?.provider_customer_id||row.provider!=="stripe")throw new Error("PLATFORM_PORTAL_UNAVAILABLE");return createPlatformBillingPortal(row.provider_customer_id,new URL(`/dashboard/${creatorId}/billing`,request.url).toString());});return NextResponse.redirect(url,303);}catch(error){const message=error instanceof Error?error.message:"";console.error("Platform billing portal failed",{creatorId,message});return NextResponse.redirect(new URL(`/dashboard/${creatorId}/billing?error=portal-unavailable`,request.url),303);}}
