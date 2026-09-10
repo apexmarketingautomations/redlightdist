@@ -34,7 +34,7 @@ Phase 3 adds Coupon, Referral, Affiliate, CRMTag, FanTag, Campaign, AnalyticsEve
 LiveStreamingProvider exposes createStream, startStream, endStream, getStreamStatus, createPlaybackToken, getViewerCount, getStreamAnalytics, createRecording and deleteRecording. LiveKit is a candidate adapter, not an approved adult-content provider. Provider acceptance must be confirmed. Authorization derives memberships and settled admission purchases from server records. Tokens cannot grant publishing to viewers. Revocation disconnects participants; token expiry alone does not terminate an established session. Chat moderation must not be bypassable through direct client data publishing. Provider webhooks are authenticated and idempotent. Recording output remains private and requires fresh authorization.
 
 ## Risks and release gates
-- No runtime authentication, tenant isolation, payment processing or live delivery is implemented yet.
+- No runtime authentication, tenant isolation, payment processing or live delivery is implemented yet. The only database operation exposed by the deployment bootstrap is a constant SELECT 1 readiness probe. A restricted application role and migrations are required before adding application queries.
 - Processor onboarding, identity/age verification, jurisdiction policies and provider acceptable-use approval require external configuration/review; no compliance guarantees are made.
 - Private objects and streams must never have permanent public access URLs.
 - Unverified domains and forwarded headers cannot select tenants.
@@ -46,4 +46,4 @@ LiveStreamingProvider exposes createStream, startStream, endStream, getStreamSta
 ## Deployment
 Dedicated Railway project: 5105c3de-760c-4a3f-9f16-c99bdc3cec93.
 Production environment: 887e6301-d62f-4dd7-b948-92840689c8bd.
-Project creation is confirmed; no application service has been deployed. Preserve Next.js/PostgreSQL rather than replacing the architecture with a static hosted demo.
+Project creation is confirmed; application service 3dc60d93-0b9b-4774-aefa-e716bee950ba is connected to GitHub main; deployment verification is in progress. PostgreSQL service 2990012d-5e5a-4313-9c88-075a7d82ae20 is running with persistent storage and private networking. Preserve Next.js/PostgreSQL rather than replacing the architecture with a static hosted demo.

@@ -1,6 +1,9 @@
 # Implementation status
 
 ## DONE
+- Added deployable Next.js service entry point and database-backed /health readiness check; the root explicitly states the platform is under development.
+- Added a non-root standalone Docker runtime; local production build, type checking, 15 unit tests and lint passed.
+- Connected GitHub main to Railway app service; provisioned private PostgreSQL with a persistent 5 GB volume. App deployment verification in progress.
 - Inspected the fresh repository; no earlier application implementation is present.
 - Documented architecture, database proposal, module structure, phase sequence and risk list.
 - User approved build scripts for esbuild, sharp and unrs-resolver; frozen-lockfile installation passed.
@@ -13,7 +16,7 @@
 - Wiring the tested primitives to real database-backed request authorization; primitive tests are not proof of tenant isolation.
 
 ## NOT STARTED
-- Database migrations and forced RLS; real authentication and authorization.
+- Database migrations and forced RLS; restricted application database role; real authentication and authorization.
 - Admin onboarding, creator dashboard, five themes and public profiles.
 - Fan accounts, protected media, memberships and production payments.
 - CRM, analytics, referrals, campaigns and automation.
@@ -29,4 +32,4 @@
 ## TECHNICAL DEBT
 - README now distinguishes available checks from planned setup and live functionality.
 - Current dependency pins require security review before production deployment.
-- No application release is currently eligible to merge as production-ready.
+- The deployed foundation must not be presented as a production-ready creator application.
