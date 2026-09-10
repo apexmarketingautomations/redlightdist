@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./creator-console.css";
 
 export const metadata: Metadata = {
   title: "Redlight — Your brand. Your audience. Your business.",
