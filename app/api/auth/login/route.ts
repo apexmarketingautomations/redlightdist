@@ -18,15 +18,18 @@ function safeEqual(value: string, expected: string) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+function sameOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  return !origin || origin === new URL(request.url).origin;
+}
+
 export async function POST(request: Request) {
+  if (!sameOrigin(request)) return NextResponse.json({ error: "Request rejected." }, { status: 403 });
   const parsed = credentialsSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Enter a valid email and password." }, { status: 400 });
-  }
+  if (!parsed.success) return NextResponse.json({ error: "Enter a valid email and password." }, { status: 400 });
 
   const { email, password } = parsed.data;
   const client = await db.connect();
-
   try {
     await client.query("BEGIN");
     let user = (
@@ -43,7 +46,6 @@ export async function POST(request: Request) {
         await client.query("ROLLBACK");
         return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
       }
-
       const passwordHash = await hash(password);
       user = (
         await client.query<{ id: string; password_hash: string; is_platform_admin: boolean }>(
@@ -58,29 +60,26 @@ export async function POST(request: Request) {
       await client.query("ROLLBACK");
       return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
     }
-
-    if (!user) throw new Error("Failed to provision administrator.");
-
-    if (!user.is_platform_admin) {
-      await client.query("ROLLBACK");
-      return NextResponse.json({ error: "This account does not have admin access." }, { status: 403 });
-    }
+    if (!user) throw new Error("Failed to resolve authenticated user.");
 
     const token = randomBytes(32).toString("base64url");
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await client.query("DELETE FROM sessions WHERE expires_at <= now() OR revoked_at IS NOT NULL");
     await client.query(
-      "INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3)",
-      [user.id, hashSessionToken(token), expiresAt],
+      `DELETE FROM sessions WHERE id IN (
+         SELECT id FROM sessions WHERE user_id = $1 AND revoked_at IS NULL ORDER BY created_at DESC OFFSET 9
+       )`,
+      [user.id],
+    );
+    await client.query(
+      "INSERT INTO sessions (user_id, token_hash, expires_at, user_agent) VALUES ($1, $2, $3, $4)",
+      [user.id, hashSessionToken(token), expiresAt, request.headers.get("user-agent")?.slice(0, 512) ?? null],
     );
     await client.query("COMMIT");
 
-    const response = NextResponse.json({ ok: true });
+    const response = NextResponse.json({ ok: true, destination: user.is_platform_admin ? "/admin" : "/dashboard" });
     response.cookies.set(SESSION_COOKIE, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      expires: expiresAt,
+      httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", expires: expiresAt,
     });
     return response;
   } catch (error) {

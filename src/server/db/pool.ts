@@ -2,15 +2,18 @@ import { Pool } from "pg";
 
 const globalForDb = globalThis as typeof globalThis & { redlightPool?: Pool };
 
+const existingPool = globalForDb.redlightPool;
 export const db =
-  globalForDb.redlightPool ??
+  existingPool ??
   new Pool({
     connectionString: process.env.DATABASE_URL,
     max: 10,
     connectionTimeoutMillis: 5000,
     idleTimeoutMillis: 30000,
+    maxUses: 7500,
   });
 
-db.on("error", () => console.error("Database idle connection unavailable"));
-
-if (process.env.NODE_ENV !== "production") globalForDb.redlightPool = db;
+if (!existingPool) {
+  db.on("error", () => console.error("Database idle connection unavailable"));
+  globalForDb.redlightPool = db;
+}

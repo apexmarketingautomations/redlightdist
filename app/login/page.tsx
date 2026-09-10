@@ -20,14 +20,14 @@ export default function LoginPage() {
       body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
     });
 
-    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    const body = (await response.json().catch(() => ({}))) as { error?: string; destination?: string };
     if (!response.ok) {
       setError(body.error ?? "Unable to log in.");
       setSubmitting(false);
       return;
     }
 
-    router.replace("/admin");
+    router.replace(body.destination ?? "/dashboard");
     router.refresh();
   }
 
