@@ -6,13 +6,15 @@ import { requireCreatorFeature } from "@/src/modules/entitlements/server";
 import type { FormState } from "@/app/components/action-form";
 
 const uuid=z.string().uuid();
+const optionalNumber=(schema:z.ZodNumber)=>z.preprocess(value=>value===""||value===null?undefined:value,schema.optional());
+const subscriptionStatus=z.preprocess(value=>value===""?undefined:value,z.enum(["trialing","active","past_due","cancelled","expired","refunded"]).optional());
 const schema=z.discriminatedUnion("operation",[
   z.object({creatorId:uuid,fanId:uuid,operation:z.literal("profile"),displayName:z.string().trim().max(160),phone:z.string().trim().max(40),acquisitionSource:z.string().trim().max(160)}),
   z.object({creatorId:uuid,fanId:uuid,operation:z.literal("add-note"),note:z.string().trim().min(1).max(5000)}),
   z.object({creatorId:uuid,fanId:uuid,operation:z.literal("add-tag"),tagId:uuid}),
   z.object({creatorId:uuid,fanId:uuid,operation:z.literal("remove-tag"),tagId:uuid}),
   z.object({creatorId:uuid,fanId:uuid,operation:z.enum(["suspend","restore"])}),
-  z.object({creatorId:uuid,operation:z.literal("segment-create"),name:z.string().trim().min(2).max(160),subscriptionStatus:z.string().trim().max(40).optional(),minSpend:z.coerce.number().min(0).max(10000000).optional(),inactiveDays:z.coerce.number().int().min(0).max(3650).optional(),ppvPurchases:z.coerce.number().int().min(0).max(100000).optional(),tagId:z.union([uuid,z.literal("")]).optional()}),
+  z.object({creatorId:uuid,operation:z.literal("segment-create"),name:z.string().trim().min(2).max(160),subscriptionStatus,minSpend:optionalNumber(z.coerce.number().min(0).max(10000000)),inactiveDays:optionalNumber(z.coerce.number().int().min(0).max(3650)),ppvPurchases:optionalNumber(z.coerce.number().int().min(0).max(100000)),tagId:z.preprocess(value=>value===""?undefined:value,uuid.optional())}),
 ]);
 const roles=new Set(["owner","admin","editor","platform_admin"]);
 export async function crmAction(_state:FormState,form:FormData):Promise<FormState>{
