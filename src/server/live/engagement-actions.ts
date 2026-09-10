@@ -1,0 +1,29 @@
+"use server";
+import { createHash, randomBytes } from "node:crypto";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { withAuthorizedCreator } from "@/src/modules/auth/authorization";
+import { requireCreatorFeature } from "@/src/modules/entitlements/server";
+import type { FormState } from "@/app/components/action-form";
+
+const uuid=z.string().uuid();
+const schema=z.discriminatedUnion("operation",[
+  z.object({creatorId:uuid,streamId:uuid,operation:z.literal("poll-create"),question:z.string().trim().min(1).max(500),options:z.string().trim().min(3).max(2000)}),
+  z.object({creatorId:uuid,streamId:uuid,pollId:uuid,operation:z.enum(["poll-open","poll-close"])}),
+  z.object({creatorId:uuid,streamId:uuid,operation:z.literal("offer-create"),productId:uuid,headline:z.string().trim().min(1).max(300)}),
+  z.object({creatorId:uuid,streamId:uuid,offerId:uuid,operation:z.enum(["offer-pin","offer-end"])}),
+  z.object({creatorId:uuid,streamId:uuid,operation:z.literal("guest-create"),guestLabel:z.string().trim().min(1).max(200),expiresMinutes:z.coerce.number().int().min(5).max(1440)}),
+  z.object({creatorId:uuid,streamId:uuid,guestId:uuid,operation:z.literal("guest-revoke")}),
+]);
+const roles=new Set(["owner","admin","editor","platform_admin"]);
+export async function liveEngagementAction(_state:FormState,form:FormData):Promise<FormState>{const parsed=schema.safeParse(Object.fromEntries(form));if(!parsed.success)return{ok:false,message:"Check the live engagement fields and try again."};const d=parsed.data;let success="Live engagement updated.";
+  try{await withAuthorizedCreator(d.creatorId,async(client,actor,role)=>{if(!roles.has(role))throw new Error("ROLE_DENIED");const stream=await client.query("SELECT 1 FROM live_streams WHERE creator_id=$1 AND id=$2",[d.creatorId,d.streamId]);if(!stream.rowCount)throw new Error("STREAM_NOT_FOUND");
+    if(d.operation==="poll-create"){await requireCreatorFeature(client,d.creatorId,"livePolls");const options=d.options.split(/\r?\n|,/).map(v=>v.trim()).filter(Boolean).slice(0,10);if(options.length<2)throw new Error("POLL_OPTIONS_REQUIRED");const poll=(await client.query<{id:string}>("INSERT INTO live_polls(creator_id,stream_id,question,status) VALUES($1,$2,$3,'draft') RETURNING id",[d.creatorId,d.streamId,d.question])).rows[0]!;for(let i=0;i<options.length;i++)await client.query("INSERT INTO live_poll_options(creator_id,poll_id,label,position) VALUES($1,$2,$3,$4)",[d.creatorId,poll.id,options[i],i]);}
+    else if(d.operation==="poll-open"||d.operation==="poll-close"){await requireCreatorFeature(client,d.creatorId,"livePolls");const status=d.operation==="poll-open"?"open":"closed";const changed=await client.query(`UPDATE live_polls SET status=$4,opened_at=CASE WHEN $4='open' THEN coalesce(opened_at,now()) ELSE opened_at END,closed_at=CASE WHEN $4='closed' THEN now() ELSE NULL END WHERE creator_id=$1 AND stream_id=$2 AND id=$3`,[d.creatorId,d.streamId,d.pollId,status]);if(!changed.rowCount)throw new Error("POLL_NOT_FOUND");}
+    else if(d.operation==="offer-create"){await requireCreatorFeature(client,d.creatorId,"liveOffers");const product=await client.query("SELECT 1 FROM products WHERE creator_id=$1 AND id=$2 AND active",[d.creatorId,d.productId]);if(!product.rowCount)throw new Error("PRODUCT_NOT_FOUND");await client.query("INSERT INTO live_offers(creator_id,stream_id,product_id,headline,status) VALUES($1,$2,$3,$4,'draft')",[d.creatorId,d.streamId,d.productId,d.headline]);}
+    else if(d.operation==="offer-pin"||d.operation==="offer-end"){await requireCreatorFeature(client,d.creatorId,"liveOffers");if(d.operation==="offer-pin"){await client.query("UPDATE live_offers SET status='ended',ended_at=coalesce(ended_at,now()) WHERE creator_id=$1 AND stream_id=$2 AND status='pinned'",[d.creatorId,d.streamId]);const changed=await client.query("UPDATE live_offers SET status='pinned',pinned_at=now(),ended_at=NULL WHERE creator_id=$1 AND stream_id=$2 AND id=$3",[d.creatorId,d.streamId,d.offerId]);if(!changed.rowCount)throw new Error("OFFER_NOT_FOUND");}else{const changed=await client.query("UPDATE live_offers SET status='ended',ended_at=now() WHERE creator_id=$1 AND stream_id=$2 AND id=$3",[d.creatorId,d.streamId,d.offerId]);if(!changed.rowCount)throw new Error("OFFER_NOT_FOUND");}}
+    else if(d.operation==="guest-create"){await requireCreatorFeature(client,d.creatorId,"liveGuests");const raw=randomBytes(32).toString("base64url"),tokenHash=createHash("sha256").update(raw).digest("hex");await client.query("INSERT INTO live_guest_invites(creator_id,stream_id,guest_label,token_hash,status,expires_at) VALUES($1,$2,$3,$4,'pending',now()+($5::text||' minutes')::interval)",[d.creatorId,d.streamId,d.guestLabel,tokenHash,d.expiresMinutes]);success=`Guest invite token (shown once): ${raw}`;}
+    else{await requireCreatorFeature(client,d.creatorId,"liveGuests");const changed=await client.query("UPDATE live_guest_invites SET status='revoked' WHERE creator_id=$1 AND stream_id=$2 AND id=$3 AND status='pending'",[d.creatorId,d.streamId,d.guestId]);if(!changed.rowCount)throw new Error("GUEST_INVITE_NOT_FOUND");}
+    await client.query("INSERT INTO audit_logs(actor_user_id,creator_id,action,target_type,target_id,metadata) VALUES($1,$2,$3,'livestream',$4,$5::jsonb)",[actor.id,d.creatorId,`live.${d.operation}`,d.streamId,JSON.stringify({operation:d.operation})]);
+  });}catch(error){const message=error instanceof Error?error.message:"";console.error("Live engagement action failed",{message,creatorId:d.creatorId,streamId:d.streamId});return{ok:false,message:message==="POLL_OPTIONS_REQUIRED"?"Add at least two poll options.":message.startsWith("FEATURE_NOT_AVAILABLE:")?"This live feature requires Elite.":"Live engagement update could not be completed."};}
+  revalidatePath(`/dashboard/${d.creatorId}/livestreams/${d.streamId}`);return{ok:true,message:success};}
