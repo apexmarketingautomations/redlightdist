@@ -1,51 +1,35 @@
 # Implementation status
 
-## Back office delivery — September 10, 2026
-- Replaced placeholder admin page with real platform counts, searchable paginated user/client directories, user creation, role and account-status management, client onboarding, membership management, workspace status/settings, and an audit-history view.
-- Added separate client workspace and account screens with role-checked workspace settings and password changes that revoke other sessions.
-- Platform admin management explicitly verifies a current enabled administrator; transaction-local database policies permit cross-client administration without giving clients administrator access or adding implicit client memberships.
-- Disabled accounts cannot log in or retain valid sessions; suspended/deleted workspaces fail client authorization. Last workspace owners and the acting/recovery administrator are protected from removal/demotion through these controls.
-- Validation: production build and 22 tests passed, including restricted-role database tests for cross-tenant access, admin-only actions, settings writes, onboarding, suspension, disabled sessions, and transaction context cleanup. PGlite test adapter omits PostgreSQL advisory locking; production uses transaction advisory locks.
-- Production authenticated/browser verification is not claimed: the Railway connector masks credentials in this session. Build/health verification alone does not establish absence of every data or memory leak.
-- Not added in this delivery: email invitations/delivery, password-recovery email, payment processing, media/content management, domain provisioning, CRM, or streaming. Existing domain and plan records are displayed; no provider activity is simulated.
-
-Earlier entries below are historical foundation notes, not a current inventory.
-
+Updated September 10, 2026 from the `full-scope-platform` branch.
 
 ## DONE
-- Added the first PostgreSQL migration with identity, tenant, domain, theme, settings, plan, feature override, audit, compliance, and consent records; plan prices are seeded.
-- Added forced row-level security policies for Phase 1 tenant tables and a transaction-scoped creator database helper.
-- Added transactional, advisory-locked migration execution and an idempotency/schema test using an isolated PostgreSQL-compatible database.
-- Built the responsive SaaS sales website with platform positioning, creator-brand examples, capabilities, themes, plan pricing, security, and onboarding flow.
-- Added deployable Next.js service entry point and database-backed /health readiness check; the root explicitly states the platform is under development.
-- Added a non-root standalone Docker runtime; local production build, type checking, 15 unit tests and lint passed.
-- Connected GitHub main to Railway app service; provisioned private PostgreSQL with a persistent 5 GB volume. App deployment verification in progress.
-- Inspected the fresh repository; no earlier application implementation is present.
-- Documented architecture, database proposal, module structure, phase sequence and risk list.
-- User approved build scripts for esbuild, sharp and unrs-resolver; frozen-lockfile installation passed.
-- Created dedicated private Railway project redlightdist and its production environment.
-- Added centralized Starter/Pro/Elite capability policy, suspension/grace handling and exact verified-host resolution primitives.
-- Validation: 15 unit tests passed; TypeScript passed; ESLint exited successfully (diagnostic notes that application routes do not exist yet); git diff --check passed.
+
+- One Next.js/PostgreSQL modular monolith with hostname tenant resolution, creator-scoped transactions, forced RLS, tenant foreign keys, and centralized plan entitlements/quotas.
+- Platform/fan authentication, verification/reset, optional TOTP MFA, RBAC, secure cookies, rate limiting, session revocation, audit history, and audited support impersonation.
+- Platform admin, creator onboarding/lifecycle/plan/feature controls, creator dashboard, five token-based themes, public creator sites, age gate, legal/reporting forms, fan accounts, memberships, purchases, favorites, and protected media authorization.
+- Payment-provider contract and CCBill/Segpay adapters; creator SaaS billing remains a separate Stripe adapter.
+- S3-compatible private storage with signed upload/download handling.
+- Membership, PPV, tips, products, coupons, CRM, referrals, analytics, notifications, campaigns, durable automation, compliance, report/takedown, and emergency admin records/workflows.
+- Livestream provider contract and LiveKit adapter, scheduled/public/subscriber/tier/PPV access, publisher/viewer credentials, chat, moderation, tips/admissions, recordings/replays, and analytics records.
+- Railway application/PostgreSQL services, persistent database volume, health check, and pre-deploy migrations.
+- Release-candidate verification after branch recovery: lint and TypeScript passed, 22 tests passed, migrations passed twice in an isolated PostgreSQL-compatible database, and the 31-page production build passed.
 
 ## IN PROGRESS
-- Phase 1 foundation and baseline validation.
-- Wiring the tested primitives to real database-backed request authorization; primitive tests are not proof of tenant isolation.
+
+- Merge the repaired full-scope branch into `main`, deploy that exact commit to Railway, and verify deployment status, migrations, health response, and runtime logs.
 
 ## NOT STARTED
-- Database migrations and forced RLS; restricted application database role; real authentication and authorization.
-- Admin onboarding, creator dashboard, five themes and public profiles.
-- Fan accounts, protected media, memberships and production payments.
-- CRM, analytics, referrals, campaigns and automation.
-- Live provider adapter, studio, playback, admission, chat, moderation, replay and analytics.
-- Custom-domain verification, production services, monitoring, backups and load tests.
-- Browser/mobile acceptance tests and complete production release.
+
+- No requested architectural module is absent. Provider-backed operations remain disabled until their production accounts are configured.
 
 ## BLOCKED
-- Production payment acceptance requires configured merchant accounts and processor approval.
-- Production media, livestream, email and verification providers require configured services and applicable approval.
-- Legal counsel must supply jurisdiction-specific policies and review compliance configuration before adult-content launch.
+
+- Real creator/fan payments require approved CCBill or Segpay merchant accounts and credentials. Stripe is only for SaaS billing and is not assumed eligible for adult transactions.
+- Real private media, email/SMS, MFA encryption, and livestream delivery require production provider credentials. Confirm LiveKit acceptable-use approval before enabling it for the intended vertical.
+- Jurisdiction-specific age verification and adult-content rules require legal counsel review. The platform provides configurable enforcement records; it does not invent legal requirements.
 
 ## TECHNICAL DEBT
-- README now distinguishes available checks from planned setup and live functionality.
-- Current dependency pins require security review before production deployment.
-- The deployed foundation must not be presented as a production-ready creator application.
+
+- Add browser coverage against a seeded staging environment; the current suite covers unit, restricted-role database, migration, type, lint, and production build behavior.
+- Configure backups/restore drills, alert destinations, object lifecycle policies, and load tests before onboarding paying creators.
+- Run dependency/security audits immediately before public launch and continuously thereafter.

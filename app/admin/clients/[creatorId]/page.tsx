@@ -1,4 +1,5 @@
 import { Workspace } from "@/src/server/backoffice/workspace";
 export default async function ClientAdmin({params}:{params:Promise<{creatorId:string}>}) {
-  return <Workspace creatorId={(await params).creatorId} admin/>;
+  const {creatorId}=await params;
+  return <><div className="office-support-launch"><a className="office-button" href={`/admin/clients/${creatorId}/support`}>Start audited support session</a></div><Workspace creatorId={creatorId} admin/></>;
 }

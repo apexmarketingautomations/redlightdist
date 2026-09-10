@@ -11,6 +11,8 @@ async function transaction<T>(settings: Array<[string, string]>, operation: (cli
   const client = await db.connect();
   try {
     await client.query("BEGIN");
+    // Never execute application queries as the privileged migration/owner role.
+    await client.query("SET LOCAL ROLE redlight_runtime");
     for (const [key, value] of settings) await client.query("SELECT set_config($1,$2,true)", [key, value]);
     const result = await operation(client);
     await client.query("COMMIT");
@@ -22,6 +24,9 @@ async function transaction<T>(settings: Array<[string, string]>, operation: (cli
     client.release();
   }
 }
+
+/** Restricted runtime transaction without tenant context. RLS returns no tenant rows; use only narrow SECURITY DEFINER resolvers. */
+export async function withRuntime<T>(operation:(client:PoolClient)=>Promise<T>){ return transaction([],operation); }
 
 export async function withUser<T>(userId: string, operation: (client: PoolClient) => Promise<T>) {
   validId(userId);
