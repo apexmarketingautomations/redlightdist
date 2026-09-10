@@ -6,7 +6,7 @@ import { requireCreatorFeature } from "@/src/modules/entitlements/server";
 import type { FormState } from "@/app/components/action-form";
 
 const uuid=z.string().uuid();
-const optionalNumber=(schema:z.ZodNumber)=>z.preprocess(value=>value===""||value===null?undefined:value,schema.optional());
+const optionalNumber=(schema:z.ZodType<number,unknown>)=>z.preprocess(value=>value===""||value===null?undefined:value,schema.optional());
 const subscriptionStatus=z.preprocess(value=>value===""?undefined:value,z.enum(["trialing","active","past_due","cancelled","expired","refunded"]).optional());
 const schema=z.discriminatedUnion("operation",[
   z.object({creatorId:uuid,fanId:uuid,operation:z.literal("profile"),displayName:z.string().trim().max(160),phone:z.string().trim().max(40),acquisitionSource:z.string().trim().max(160)}),
