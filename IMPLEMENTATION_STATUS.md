@@ -1,6 +1,7 @@
 # Implementation status
 
 ## DONE
+- Built the responsive SaaS sales website with platform positioning, creator-brand examples, capabilities, themes, plan pricing, security, and onboarding flow.
 - Added deployable Next.js service entry point and database-backed /health readiness check; the root explicitly states the platform is under development.
 - Added a non-root standalone Docker runtime; local production build, type checking, 15 unit tests and lint passed.
 - Connected GitHub main to Railway app service; provisioned private PostgreSQL with a persistent 5 GB volume. App deployment verification in progress.
