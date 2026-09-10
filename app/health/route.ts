@@ -14,8 +14,11 @@ pool.on("error", () => console.error("Database idle connection unavailable"));
 export async function GET() {
   try {
     if (!process.env.DATABASE_URL) throw new Error("Database not configured");
-    await pool.query("SELECT 1");
-    return Response.json({ status: "ok" }, { headers: { "Cache-Control": "no-store" } });
+    const result = await pool.query<{ plan_count: number }>("SELECT count(*)::int AS plan_count FROM plans");
+    return Response.json(
+      { status: "ok", database: "ready", schema: "foundation", plans: result.rows[0]?.plan_count ?? 0 },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch {
     return Response.json({ status: "unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
