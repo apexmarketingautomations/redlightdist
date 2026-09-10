@@ -1,4 +1,4 @@
-import { Workspace } from "@/src/server/backoffice/workspace";
+import { CreatorConsole } from "@/src/server/creator/console";
 export default async function ClientWorkspace({params}:{params:Promise<{creatorId:string}>}) {
-  return <Workspace creatorId={(await params).creatorId}/>;
+  return <CreatorConsole creatorId={(await params).creatorId} section="overview"/>;
 }
