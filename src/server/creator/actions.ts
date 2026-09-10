@@ -33,7 +33,10 @@ const schemas={
   domain:z.object({creatorId,operation:z.literal("domain"),hostname:z.string().trim().toLowerCase().min(3).max(253)}),
   payment:z.object({creatorId,operation:z.literal("payment-provider"),provider:z.enum(["ccbill","segpay","stripe"]),merchantReference:z.string().trim().min(1).max(255)}),
 };
-const actionSchema=z.discriminatedUnion("operation",Object.values(schemas) as [typeof schemas.branding,typeof schemas.membership,...Array<any>]);
+const actionSchema=z.discriminatedUnion("operation",[
+  schemas.branding,schemas.membership,schemas.post,schemas.product,schemas.coupon,schemas.tag,
+  schemas.campaign,schemas.automation,schemas.stream,schemas.domain,schemas.payment,
+]);
 
 export async function creatorAction(_state:FormState,form:FormData):Promise<FormState>{
   const parsed=actionSchema.safeParse(Object.fromEntries(form));
