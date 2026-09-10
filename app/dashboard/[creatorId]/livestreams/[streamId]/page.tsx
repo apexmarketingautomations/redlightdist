@@ -13,7 +13,9 @@ export default async function LiveStudioPage({params}:{params:Promise<{creatorId
   const {creatorId,streamId}=await params;
   if(!z.string().uuid().safeParse(creatorId).success||!z.string().uuid().safeParse(streamId).success)notFound();
   const data=await withAuthorizedCreator(creatorId,async(client,_user,role)=>{
-    const creator=(await client.query<{name:string}>("SELECT name FROM creators WHERE id=$1 AND deleted_at IS NULL",[creatorId])).rows[0];
+    const creator=(await client.query<{name:string;plan:string}>(`SELECT c.name,coalesce(p.name,'Starter') AS plan FROM creators c
+      LEFT JOIN creator_plans cp ON cp.creator_id=c.id AND cp.billing_status<>'cancelled'
+      LEFT JOIN plans p ON p.id=cp.plan_id WHERE c.id=$1 AND c.deleted_at IS NULL LIMIT 1`,[creatorId])).rows[0];
     const stream=(await client.query<{id:string;title:string;description:string;status:string;access_type:string;provider:string;provider_stream_id:string|null;chat_enabled:boolean;scheduled_for:Date|null;started_at:Date|null;ended_at:Date|null;currency:string;ppv_price_minor:number|null}>("SELECT id,title,description,status,access_type,provider,provider_stream_id,chat_enabled,scheduled_for,started_at,ended_at,currency,ppv_price_minor FROM live_streams WHERE creator_id=$1 AND id=$2",[creatorId,streamId])).rows[0];
     if(!creator||!stream)return null;
     const sample=(await client.query<{concurrent_viewers:number;unique_viewers:string;gross_revenue_minor:string}>("SELECT concurrent_viewers,unique_viewers::text,gross_revenue_minor::text FROM live_analytics_samples WHERE creator_id=$1 AND stream_id=$2 ORDER BY sampled_at DESC LIMIT 1",[creatorId,streamId])).rows[0];
@@ -27,7 +29,7 @@ export default async function LiveStudioPage({params}:{params:Promise<{creatorId
   if(!data)notFound();
   const canManage=["owner","admin","editor","platform_admin"].includes(data.role);
   const canModerate=["owner","admin","platform_admin"].includes(data.role);
-  return <CreatorShell creatorId={creatorId} creatorName={data.creator.name} active="livestreams">
+  return <CreatorShell creatorId={creatorId} creatorName={data.creator.name} plan={data.creator.plan} section="livestreams">
     <div className="creator-console-heading"><div><small>LIVESTREAM STUDIO</small><h1>{data.stream.title}</h1><p>{data.stream.description||"Manage the live event, broadcast, audience and moderation."}</p></div><span className={`creator-status ${data.stream.status}`}>{data.stream.status}</span></div>
     <section className="creator-metric-grid"><article><span>Current viewers</span><strong>{data.sample?.concurrent_viewers??0}</strong></article><article><span>Unique viewers</span><strong>{data.sample?.unique_viewers??"0"}</strong></article><article><span>Live revenue</span><strong>{money(Number(data.revenue.gross||0)+Number(data.revenue.tips||0),data.stream.currency)}</strong></article><article><span>Access</span><strong className="creator-text-metric">{data.stream.access_type}</strong></article></section>
     {canManage&&<section className="creator-card"><div className="creator-card-head"><div><small>STREAM CONTROL</small><h2>Go live</h2></div></div><div className="creator-inline-actions">{["draft","scheduled"].includes(data.stream.status)&&<ActionForm action={liveStreamAction} label="Start stream"><input type="hidden" name="creatorId" value={creatorId}/><input type="hidden" name="streamId" value={streamId}/><input type="hidden" name="operation" value="start"/><p>Creates the provider room and opens broadcasting. Viewers still require server-side admission.</p></ActionForm>}{data.stream.status==="live"&&<ActionForm action={liveStreamAction} label="End stream"><input type="hidden" name="creatorId" value={creatorId}/><input type="hidden" name="streamId" value={streamId}/><input type="hidden" name="operation" value="end"/><p>Ends the provider room and revokes active admissions.</p></ActionForm>}</div></section>}
