@@ -60,6 +60,14 @@ DO $$ DECLARE t text; BEGIN
   END LOOP;
 END $$;
 
+ALTER TABLE platform_alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE platform_alerts FORCE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='platform_alerts' AND policyname='platform_alerts_admin') THEN
+    CREATE POLICY platform_alerts_admin ON platform_alerts USING (app_is_platform_admin()) WITH CHECK (app_is_platform_admin());
+  END IF;
+END $$;
+
 -- Existing creators pre-dating the onboarding wizard receive a Starter trial so centralized entitlements are deterministic.
 INSERT INTO creator_plans(creator_id,plan_id,billing_status,interval)
 SELECT c.id,p.id,'trialing','monthly'
@@ -87,4 +95,4 @@ WHERE c.deleted_at IS NULL
 ON CONFLICT(creator_id,name) DO NOTHING;
 
 GRANT SELECT,INSERT,UPDATE,DELETE ON auth_rate_limits,favorites,fan_consents TO redlight_runtime;
-GRANT SELECT ON platform_alerts TO redlight_runtime;
+GRANT SELECT,INSERT,UPDATE,DELETE ON platform_alerts TO redlight_runtime;
