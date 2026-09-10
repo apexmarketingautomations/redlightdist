@@ -1,5 +1,5 @@
 import { hash, verify } from "@node-rs/argon2";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { SESSION_COOKIE, hashSessionToken } from "@/src/modules/auth/session";
@@ -8,7 +8,7 @@ import { consumePlatformRateLimit, clearPlatformRateLimit } from "@/src/server/s
 import { db } from "@/src/server/db/pool";
 
 export const runtime="nodejs";
-const credentialsSchema=z.object({email:z.string().email().max(320).transform(v=>v.trim().toLowerCase()),password:z.string().min(1).max(1024),mfaCode:z.string().trim().regex(/^\d{6}$/).optional()});
+const credentialsSchema=z.object({email:z.string().email().max(320).transform(v=>v.trim().toLowerCase()),password:z.string().min(1).max(1024),mfaCode:z.string().trim().regex(/^(?:\d{6}|[a-f0-9]{4}-[a-f0-9]{4})$/i).optional()});
 function safeEqual(value:string,expected:string){const left=Buffer.from(value),right=Buffer.from(expected);return left.length===right.length&&timingSafeEqual(left,right);}
 function sameOrigin(request:Request){const origin=request.headers.get("origin");if(!origin)return true;try{const originHost=new URL(origin).host.toLowerCase();const forwardedHost=request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();const requestHost=(forwardedHost||request.headers.get("host")||"").toLowerCase();return Boolean(requestHost)&&originHost===requestHost;}catch{return false;}}
 
@@ -29,14 +29,14 @@ export async function POST(request:Request){
       if(!user||user.disabled_at||!(await verify(user.password_hash,password))){await client.query("COMMIT");return NextResponse.json({error:"Invalid email or password."},{status:401});}
       if(!user.email_verified_at){await client.query("COMMIT");return NextResponse.json({error:"Verify your email before signing in.",verificationRequired:true},{status:403});}
       if(user.mfa_enabled){
-        const credential=(await client.query<{secret_ciphertext:string;secret_iv:string;secret_tag:string;confirmed_at:Date|null}>("SELECT secret_ciphertext,secret_iv,secret_tag,confirmed_at FROM mfa_credentials WHERE user_id=$1",[user.id])).rows[0];
-        if(!credential?.confirmed_at)throw new Error("MFA_STATE_INVALID");
-        if(!mfaCode){await client.query("COMMIT");return NextResponse.json({error:"Enter your authenticator code.",mfaRequired:true},{status:401});}
-        const secret=decryptMfaSecret({ciphertext:credential.secret_ciphertext,iv:credential.secret_iv,tag:credential.secret_tag});if(!verifyTotp(secret,mfaCode)){await client.query("COMMIT");return NextResponse.json({error:"Invalid authenticator code.",mfaRequired:true},{status:401});}
+        const credential=(await client.query<{secret_ciphertext:string;secret_iv:string;secret_tag:string;confirmed_at:Date|null}>("SELECT secret_ciphertext,secret_iv,secret_tag,confirmed_at FROM mfa_credentials WHERE user_id=$1",[user.id])).rows[0];if(!credential?.confirmed_at)throw new Error("MFA_STATE_INVALID");
+        if(!mfaCode){await client.query("COMMIT");return NextResponse.json({error:"Enter your authenticator or recovery code.",mfaRequired:true},{status:401});}
+        const secret=decryptMfaSecret({ciphertext:credential.secret_ciphertext,iv:credential.secret_iv,tag:credential.secret_tag});let accepted=/^\d{6}$/.test(mfaCode)&&verifyTotp(secret,mfaCode);
+        if(!accepted&&/^[a-f0-9]{4}-[a-f0-9]{4}$/i.test(mfaCode)){const codeHash=createHash("sha256").update(mfaCode.toLowerCase()).digest("hex");const recovery=(await client.query<{code_hash:string}>("SELECT code_hash FROM mfa_recovery_codes WHERE user_id=$1 AND code_hash=$2 AND used_at IS NULL FOR UPDATE",[user.id,codeHash])).rows[0];if(recovery){await client.query("UPDATE mfa_recovery_codes SET used_at=now() WHERE user_id=$1 AND code_hash=$2",[user.id,codeHash]);accepted=true;}}
+        if(!accepted){await client.query("COMMIT");return NextResponse.json({error:"Invalid authenticator or recovery code.",mfaRequired:true},{status:401});}
       }
     }
-    if(!user)throw new Error("Failed to resolve authenticated user.");
-    await clearPlatformRateLimit(client,"login",email);
+    if(!user)throw new Error("Failed to resolve authenticated user.");await clearPlatformRateLimit(client,"login",email);
     const token=randomBytes(32).toString("base64url"),expiresAt=new Date(Date.now()+7*24*60*60*1000);await client.query("DELETE FROM sessions WHERE expires_at<=now() OR revoked_at IS NOT NULL");await client.query(`DELETE FROM sessions WHERE id IN (SELECT id FROM sessions WHERE user_id=$1 AND revoked_at IS NULL ORDER BY created_at DESC OFFSET 9)`,[user.id]);await client.query("INSERT INTO sessions(user_id,token_hash,expires_at,user_agent) VALUES($1,$2,$3,$4)",[user.id,hashSessionToken(token),expiresAt,request.headers.get("user-agent")?.slice(0,512)??null]);await client.query("COMMIT");
     const response=NextResponse.json({ok:true,destination:user.is_platform_admin?"/admin":"/dashboard"});response.cookies.set(SESSION_COOKIE,token,{httpOnly:true,secure:process.env.NODE_ENV==="production",sameSite:"lax",path:"/",expires:expiresAt});return response;
   }catch(error){await client.query("ROLLBACK").catch(()=>undefined);console.error("Login failed",error);return NextResponse.json({error:"Login is temporarily unavailable."},{status:500});}finally{client.release();}
